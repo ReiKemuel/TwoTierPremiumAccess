@@ -48,6 +48,17 @@ public final class PremiumAccessManager: ObservableObject {
         scheduleExpiryTimer(at: expiry)
     }
 
+    /// Manually revoke the ad-unlock (clears expiry, cancels timer, no expiry-notice fired).
+    /// Use for: sign-out flows, debug reset, or when a user upgrades to a real subscription
+    /// mid-unlock-window and you want the state to be clean.
+    public func revokeAdUnlock() {
+        expiryTimer?.cancel()
+        isAdUnlocked = false
+        adUnlockExpiry = nil
+        showExpiryNotice = false
+        clearExpiry()
+    }
+
     // MARK: - Persistence
 
     private func persistExpiry(_ date: Date) {
