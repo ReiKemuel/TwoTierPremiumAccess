@@ -122,6 +122,45 @@ When the timer fires, `isAdUnlocked` flips back to `false`, the CombineLatest pi
 
 ---
 
+## Using with [AdMobKit](https://github.com/ReiKemuel/AdMobKit)
+
+TwoTierPremiumAccess and AdMobKit are architecturally independent — neither depends on the other, and you can consume either one alone. If you use both in the same app (as I do in Ambio), the connection is a small view-layer bridge that forwards AdMobKit's rewarded-ad grant into `PremiumAccessManager.grantAdUnlock()`.
+
+```swift
+import AdMobKit
+import TwoTierPremiumAccess
+
+struct ContentView: View {
+    @StateObject private var subs = MockSubscriptionStore.shared      // AdMobKit
+    @StateObject private var access = PremiumAccessManager.shared     // this package
+
+    var body: some View {
+        // ... your UI ...
+        .onChange(of: subs.isAdUnlocked) { _, newValue in
+            if newValue {
+                access.grantAdUnlock()
+            }
+        }
+    }
+}
+```
+
+Four lines. AdMobKit tracks its own local "user watched an ad" flag; TwoTierPremiumAccess owns the derived `hasPremiumAccess` state. The view layer forwards one to the other. See **[AdMobKit's `Examples/DemoApp/`](https://github.com/ReiKemuel/AdMobKit/tree/main/Examples/DemoApp)** for a runnable Xcode project that exercises this end-to-end.
+
+---
+
+## Debug knobs
+
+One property is `public var` so you can shorten the ad-unlock window during development instead of waiting an hour:
+
+```swift
+PremiumAccessManager.shared.unlockDuration = 15   // seconds; default 3600 (1 hour)
+```
+
+Set this before calling `grantAdUnlock()` and the timer schedules against the shortened window. Useful for watching the full grant → derive → expiry → notice cycle inside a single test session.
+
+---
+
 ## Honest notes
 
 **`Timer.publish` for the expiry timer isn't the right primitive.** It works, but Swift Concurrency's `Task { try await Task.sleep(...) }` is cancellation-safe and composes better with the rest of a modern app. This is on my own refactor list — it's small and I'll ship it in Ambio when I next touch this file.
